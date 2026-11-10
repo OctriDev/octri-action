@@ -1,0 +1,50 @@
+name: Octri
+description: Push your OpenAPI spec to Octri, which republishes your docs, MCP server and changelog from it, and optionally builds your SDKs.
+author: Octri
+branding:
+  icon: upload-cloud
+  color: purple
+
+inputs:
+  api-key:
+    description: An Octri API key. Create one under Settings, API keys, and store it as a repository secret.
+    required: true
+  project-id:
+    description: The Octri project the spec belongs to. `octri projects list` prints it.
+    required: true
+  spec:
+    description: Path to the OpenAPI spec, YAML or JSON, relative to the repository root.
+    required: true
+  build-sdks:
+    description: Also build the SDKs once the spec is in. The step fails if any language fails.
+    default: "false"
+  cli-version:
+    description: The @octri/cli version to run.
+    default: "1.0.8"
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 22
+
+    # Inputs reach the shell through env, never inline in the script, so a
+    # value cannot be read as shell syntax.
+    - name: Push the spec
+      shell: bash
+      env:
+        OCTRI_API_KEY: ${{ inputs.api-key }}
+        OCTRI_PROJECT_ID: ${{ inputs.project-id }}
+        OCTRI_CLI: "@octri/cli@${{ inputs.cli-version }}"
+        SPEC: ${{ inputs.spec }}
+      run: npx --yes "$OCTRI_CLI" specs push "$SPEC"
+
+    - name: Build the SDKs
+      if: inputs.build-sdks == 'true'
+      shell: bash
+      env:
+        OCTRI_API_KEY: ${{ inputs.api-key }}
+        OCTRI_PROJECT_ID: ${{ inputs.project-id }}
+        OCTRI_CLI: "@octri/cli@${{ inputs.cli-version }}"
+      run: npx --yes "$OCTRI_CLI" sdk build
